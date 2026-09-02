@@ -7,10 +7,22 @@ from pathlib import Path
 from datetime import datetime
 
 def setup_logger(mission_path):
-    """Configura el archivo log de la misión."""
+    """Configura el archivo log de la misión y la salida en terminal."""
     log_file = mission_path / f"alicia_log_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-    logging.basicConfig(filename=log_file, level=logging.INFO, 
-                        format="%(asctime)s - %(levelname)s - %(message)s")
+    
+    # Limpiamos configuraciones previas para evitar mensajes duplicados
+    for handler in logging.root.handlers[:]:
+        logging.root.removeHandler(handler)
+        
+    # Configuramos dos salidas: el archivo y la consola
+    logging.basicConfig(
+        level=logging.INFO, 
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.FileHandler(log_file),  # Guarda el texto en el archivo
+            logging.StreamHandler()         # Imprime el texto en la terminal
+        ]
+    )
     return logging.getLogger()
 
 def count_valid_images(source_folder):
@@ -43,18 +55,19 @@ def init_mission(source_str, dest_str, mission_name):
     source_folder = Path(source_str)
     base_path = Path(dest_str)
     
-    # 1. Crear estructura y log
+    # 1. Verificar fotografías PRIMERO (antes de crear nada)
+    count, images = count_valid_images(source_folder)
+    
+    if count == 0:
+        print(f"\n❌ Error: No se encontraron fotografías válidas en la carpeta de origen.")
+        print("Abortando misión. No se generaron archivos ni directorios basura.")
+        return
+        
+    # 2. Si hay fotos, proceder a crear la estructura y el log
     mission_dir = create_mission_structure(base_path, mission_name)
     logger = setup_logger(mission_dir)
     logger.info("=== INICIO DE PREPARACIÓN AUTOMATIZADA A.L.I.C.I.A. ===")
-    
-    # 2. Verificar fotografías
-    count, images = count_valid_images(source_folder)
     logger.info(f"Fotografías válidas detectadas en origen: {count}")
-    
-    if count == 0:
-        logger.warning("No se encontraron fotografías. Abortando misión.")
-        return
         
     # 3. Copiar imágenes al entorno de trabajo
     logger.info("Copiando imágenes al directorio de trabajo...")
@@ -73,7 +86,6 @@ def init_mission(source_str, dest_str, mission_name):
         logger.info("El entorno está listo para iniciar la reconstrucción 3D.")
     else:
         logger.error("=== ERROR CRÍTICO: No se pudo comunicar con COLMAP ===")
-
 
 # --- Bloque principal de ejecución ---
 if __name__ == "__main__":
