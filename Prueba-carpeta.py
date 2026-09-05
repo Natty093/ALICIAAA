@@ -25,7 +25,6 @@ def check_dependencies(logger):
         logger.error("  ✘ COLMAP no fue encontrado en el PATH.")
     return colmap_path
 
-
 # UTILIDADES BASE (misión, logging, imágenes)
 
 def setup_logger(mission_path):
@@ -100,21 +99,25 @@ def run_colmap_pipeline(mission_dir, logger):
 
     logger.info("=== INICIANDO PIPELINE COLMAP ===")
 
-    # 1. Feature extraction
+    # 1. Feature extraction (CPU, no GPU: evita errores de OpenGL/Wayland
+    #    en equipos sin GPU dedicada o con drivers no compatibles)
     ok = run_external_command([
         COLMAP_EXE, "feature_extractor",
         "--database_path", str(database_path),
         "--image_path", str(images_path),
         "--ImageReader.single_camera", "1",
+        "--FeatureExtraction.use_gpu", "0",
     ], logger)
     if not ok:
         logger.error("Falló feature_extractor. Abortando pipeline COLMAP.")
         return False
 
     # 2. Matching secuencial (ideal para fotos de vuelo tomadas en orden)
+    #    También en CPU por la misma razón.
     ok = run_external_command([
         COLMAP_EXE, "sequential_matcher",
         "--database_path", str(database_path),
+        "--FeatureMatching.use_gpu", "0",
     ], logger)
     if not ok:
         logger.error("Falló sequential_matcher. Abortando pipeline COLMAP.")
